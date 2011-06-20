@@ -26,6 +26,7 @@ SOFTWARE.
 
 import sys
 from xml.etree import ElementTree as etree
+import re
 
 #temporary file hardcoded
 file_name = 'Wikipedia-dump.xml'
@@ -44,7 +45,47 @@ def process_pages(root):
 			page_revision = child.find('{http://www.mediawiki.org/xml/export-0.5/}revision')
 			page_text = page_revision.find('{http://www.mediawiki.org/xml/export-0.5/}text').text
 			
+			page_text = page_text.replace('\r', '').replace('\n', '')
+
+			#Now lets grab all of the outgoing links and store them in a list
+			pattern = '\[\[([^\]\[]+)\]\]'
+			
+			key_vals = []
+			
+			for match in re.finditer(pattern, page_text, re.UNICODE):
+				curr_link = match.group(1)
+				#Get the real page name.
+				if '|' in curr_link:
+					link_index = curr_link.find('|')
+					curr_link = curr_link[:link_index]
+				key_vals.append(curr_link)
+			
+			#Eliminate duplicate outgoing links.
+			key_vals = set(key_vals)
+			key_vals = list(key_vals)
+			
+			page_dict[page_title] = key_vals
+			
+	return page_dict
+	
+def strip_edges(graph):
+	"""Given a graph in the form of a dictionary with key being the vertex name
+	and vertices being a list of edges, strip out any edges that don't correspond
+	to an existing vertex"""
+	
+	list_keys = graph.keys()
+	
+	#Go through the values and cut out the ones that don't correspond to keys
+	for curr_key in list_keys:
+		values = graph[curr_key]
+		#This filter expression should do nicely
+		values = [curr_value for curr_value in values if curr_value in list_keys]
+		graph[curr_key] = values
 		
+	return graph
+						
+				
+			 		
 
 def main(argv=None):
 	try:
@@ -54,9 +95,9 @@ def main(argv=None):
 	
 	root = wikitree.getroot()
 	
-	process_pages(root)
+	wiki_graph = process_pages(root)
 	
-		
+	wiki_graph = strip_edges(wiki_graph)
 	
 	return 0
 
