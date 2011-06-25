@@ -35,6 +35,8 @@ def process_pages(filename):
 	page, returns a dictionary with keys equal to the pages and a list of
 	values which are strings of outgoing links."""
 	
+	count = 0
+	
 	encoder = jencoder()
 	
 	graph_file = open('graphfile.txt', 'w')
@@ -43,19 +45,29 @@ def process_pages(filename):
 	
 	graph_values = []
 	
+	pattern = re.compile("\[\[([^\]\[]+)\]\]", re.UNICODE | re.MULTILINE)
+	
+	namespace = '{http://www.mediawiki.org/xml/export-0.5/}'
+	
 	for event, elem in parser:
-		if event == 'end' and elem.tag == '{http://www.mediawiki.org/xml/export-0.5/}title':
+		if event == 'end' and elem.tag == namespace + 'title':
 			page_title = elem.text
-		if event == 'end' and elem.tag == '{http://www.mediawiki.org/xml/export-0.5/}text':
-			page_text = elem.text			
-			page_text = page_text.replace('\r', '').replace('\n', '')
+			#This clears bits of the tree we no longer use.
+			elem.clear()
+		elif event == 'end' and elem.tag == namespace + 'text':
+			page_text = elem.text
+			#Clear bits of the tree we no longer use
+			elem.clear()
 
 			#Now lets grab all of the outgoing links and store them in a list
-			pattern = '\[\[([^\]\[]+)\]\]'
-			
 			key_vals = []
 			
-			for match in re.finditer(pattern, page_text, re.UNICODE):
+			try:
+				matches = pattern.finditer(page_text)
+			except TypeError:
+				matches = pattern.finditer(' ')
+			
+			for match in matches:
 				curr_link = match.group(1)
 				#Get the real page name.
 				if '|' in curr_link:
@@ -69,14 +81,14 @@ def process_pages(filename):
 			
 			curr_pair = {page_title : key_vals }
 			
-			graph_values.append(encoder.encode(curr_pair))
+			graph_file.write(encoder.encode(curr_pair) + '\n')
 			
+			count += 1
 			
-			if len(graph_values) > 1000:
-				write_string = '\n'.join(graph_values)
-				graph_file.write(write_string)
-				graph_values = []
-			
+			if count % 1000 == 0:
+				print str(count) + ' records processed.'
+		elif event == 'end' and elem.tag == namespace + 'page':
+			elem.clear()
 	graph_file.close()
 	return
 	
