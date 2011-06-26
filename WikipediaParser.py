@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-# encoding: utf-8
 """
-WikipediaParser.py
+wikipediagolfer.py
 
-Created by Angus Fletcher on 2011-06-25.
+Created by Angus Fletcher on 2011-06-20.
+
+Copyright (c) 2011 Angus Fletcher
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,37 +27,80 @@ SOFTWARE.
 import sys
 import os
 from xml.etree import ElementTree as etree
+from json.encoder import JSONEncoder as jencoder
 import re
-import unittest
 
-
-class WikipediaParser:
-	"""
-	A parser to iterate over a wikipedia dump file downloaded from
-	http://en.wikipedia.org/wiki/Wikipedia:Database_download and extract the
-	title and a list of links that appear in the wikipedia article as a 
-	key/value pair.
-	"""
-	def __init__(self):
-		pass
+def process_pages(filename):
+	"""Runs through the xml tree and extracts the titles and links for each
+	page, returns a dictionary with keys equal to the pages and a list of
+	values which are strings of outgoing links."""
 	
-	def __init__(self, filename):
-		"""
-		Given the filename, create a parser we can use to iterate over the
-		export file.
-		"""
-		self.parser = etree.iterparse(filename)
-		
-	def __iter__(self):
-		
+	count = 0
+	
+	encoder = jencoder()
+	
+	graph_file = open('graphfile.txt', 'w')
+	
+	parser = etree.iterparse(filename, events=('start', 'end'))
+	
+	graph_values = []
+	
+	pattern = re.compile("\[\[([^\]\[]+)\]\]", re.UNICODE | re.MULTILINE)
+	
+	namespace = '{http://www.mediawiki.org/xml/export-0.5/}'
+	
+	root = None
+	
+	for event, elem in parser:
+		if event == 'start' and root == None:
+			root = elem
+		elif event == 'end' and elem.tag == namespace + 'title':
+			page_title = elem.text
+			#This clears bits of the tree we no longer use.
+			elem.clear()
+		elif event == 'end' and elem.tag == namespace + 'text':
+			page_text = elem.text
+			#Clear bits of the tree we no longer use
+			elem.clear()
 
+			#Now lets grab all of the outgoing links and store them in a list
+			key_vals = []
+			
+			try:
+				matches = pattern.finditer(page_text)
+			except TypeError:
+				matches = pattern.finditer(' ')
+			
+			for match in matches:
+				curr_link = match.group(1)
+				#Get the real page name.
+				if '|' in curr_link:
+					link_index = curr_link.find('|')
+					curr_link = curr_link[:link_index]
+				key_vals.append(curr_link)
+			
+			#Eliminate duplicate outgoing links.
+			key_vals = set(key_vals)
+			key_vals = list(key_vals)
+			
+			curr_pair = {page_title : key_vals }
+			
+			graph_file.write(encoder.encode(curr_pair) + '\n')
+			
+			count += 1
+			
+			if count % 1000 == 0:
+				print str(count) + ' records processed.'
+		elif event == 'end' and elem.tag == namespace + 'page':
+			root.clear()
+	graph_file.close()
+	return		
+			 		
 
+def main(argv=None):
+	process_pages('enwiki-latest-pages-articles.xml')
+	
+	return 0
 
-class WikipediaParserTests(unittest.TestCase):
-	def setUp(self):
-		pass
-		
-
-
-if __name__ == '__main__':
-	unittest.main()
+if __name__ == "__main__":
+	sys.exit(main())
