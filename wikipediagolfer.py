@@ -41,7 +41,7 @@ def process_pages(filename):
 	
 	graph_file = open('graphfile.txt', 'w')
 	
-	parser = etree.iterparse(filename)
+	parser = etree.iterparse(filename, events=('start', 'end'))
 	
 	graph_values = []
 	
@@ -49,8 +49,12 @@ def process_pages(filename):
 	
 	namespace = '{http://www.mediawiki.org/xml/export-0.5/}'
 	
+	root = None
+	
 	for event, elem in parser:
-		if event == 'end' and elem.tag == namespace + 'title':
+		if event == 'start' and root == None:
+			root = elem
+		elif event == 'end' and elem.tag == namespace + 'title':
 			page_title = elem.text
 			#This clears bits of the tree we no longer use.
 			elem.clear()
@@ -88,7 +92,7 @@ def process_pages(filename):
 			if count % 1000 == 0:
 				print str(count) + ' records processed.'
 		elif event == 'end' and elem.tag == namespace + 'page':
-			elem.clear()
+			root.clear()
 	graph_file.close()
 	return
 	
