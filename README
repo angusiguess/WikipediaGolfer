@@ -1,0 +1,2 @@
+wikipediaparser.py converts a wikipedia export to a JSON graph representation.
+	Usage: python wikipediaparser.py <export file> <output file>

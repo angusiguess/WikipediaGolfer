@@ -30,7 +30,7 @@ from xml.etree import ElementTree as etree
 from json.encoder import JSONEncoder as jencoder
 import re
 
-def process_pages(filename):
+def process_pages(infile, outfile):
 	"""Runs through the xml tree and extracts the titles and links for each
 	page, returns a dictionary with keys equal to the pages and a list of
 	values which are strings of outgoing links."""
@@ -39,9 +39,14 @@ def process_pages(filename):
 	
 	encoder = jencoder()
 	
-	graph_file = open('graphfile.txt', 'w')
+	if os.path.exists(outfile):
+		print "Error: " + outfile + " already exists."
+		return
+		
 	
-	parser = etree.iterparse(filename, events=('start', 'end'))
+	graph_file = open(outfile, 'w')
+	
+	parser = etree.iterparse(infile, events=('start', 'end'))
 	
 	graph_values = []
 	
@@ -95,10 +100,18 @@ def process_pages(filename):
 			root.clear()
 	graph_file.close()
 	return		
-			 		
+	
+def help():
+	print """This tool converts a wikipedia export to a JSON graph representation.
+	\tUsage: python wikipediaparser.py <export file> <output file>"""		 		
 
-def main(argv=None):
-	process_pages('enwiki-latest-pages-articles.xml')
+def main(argv=sys.argv):
+	if len(sys.argv) is not 3:
+		help()
+		return 0
+	
+	
+	process_pages(infile=argv[1], outfile=argv[2])
 	
 	return 0
 
